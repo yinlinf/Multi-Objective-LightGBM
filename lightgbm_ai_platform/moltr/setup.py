@@ -1,5 +1,11 @@
 from distutils.core import setup
 from distutils.extension import Extension
+required_packages = [
+    "lightgbm",
+    "cloudml-hypertune",
+    "numpy",
+    "Cython"
+]
 from Cython.Build import cythonize, build_ext
 
 
@@ -11,4 +17,6 @@ exts = [Extension(name="lambdaobj",
                   extra_link_args=["-lomp", "-L/usr/local/opt/libomp/lib/", "-stdlib=libc++"]
                   )]
 
-setup(ext_modules=cythonize(exts))
+setup(name="moltr",
+      install_requires=required_packages,
+    ext_modules=cythonize(exts))
