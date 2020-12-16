@@ -1,21 +1,21 @@
 trainingInput:
   args:
-  - --bz-features-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/data/pyspark_buzzsaw_features_variant_b_lambdarank-window_21days/*_2020-09-20/results/part-000*
+  - --bz-features-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/data/pyspark_buzzsaw_features_variant_b_lambdarank-window_21days/*_2020-12-14/results/part-000*
   - --tree-config-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_lambdarank.conf
   - --num_trees=100 #Override the default parameter for num_trees, don't HP tune on this
-  hyperparameters:
-    goal: MAXIMIZE
-    hyperparameterMetricTag: validation_ndcg
-    maxTrials: 8
-    maxParallelTrials: 2
-    params: #HP Tune on these
-    - parameterName: num_leaves
-      type: INTEGER
-      minValue: 16
-      maxValue: 127
-      scaleType: UNIT_LINEAR_SCALE
-    - parameterName: label_gain
-      type: CATEGORICAL
-      categoricalValues:
-        - '0,1,3,7,15'
-        - '0,1,1,50,100'
+#  hyperparameters:
+#    goal: MAXIMIZE
+#    hyperparameterMetricTag: validation_ndcg
+#    maxTrials: 1
+#    maxParallelTrials: 1
+#    params: #HP Tune on these
+#    - parameterName: num_leaves
+#      type: INTEGER
+#      minValue: 16
+#      maxValue: 127
+#      scaleType: UNIT_LINEAR_SCALE
+#    - parameterName: label_gain
+#      type: CATEGORICAL
+#      categoricalValues:
+#        - '0,1,3,7,15'
+#        - '0,1,1,50,100'

@@ -1,9 +1,9 @@
 #!/bin/bash
 
-JOB_NAME="ebenj_lgbm_test9"
+JOB_NAME="moltr_lgbm_test3_1"
 HPTUNING_CONFIG_FILE="./scripts/example_hp_config.yaml"
 PROJECT="etsy-sr-etl-prod"
-STAGING_BUCKET=gs://etldata-prod-search-ranking-data-hkwv8r
+STAGING_BUCKET=gs://etldata-prod-search-ranking-data-hkwv8r/
 MACHINE_TYPE="n1-highcpu-32"
 
 PACKAGES=$(ls -p ./packages/* | tr '\n' ',')

@@ -27,12 +27,86 @@ _METRIC_TAG = "validation_ndcg"
 _NOTHING_LABEL = 0.0
 _PURCHASE_LABEL = 4.0
 MAX_NDCG_POS = 48
+N_SIGMOID_BINS = 1024 * 1024
+MIN_SIGMOID_ARG = -25
+MAX_SIGMOID_ARG = 25
 
 from d_lgbm.utils import sparse_vector_string_extract_column
 import collections
-sys.path.insert(0, './')
-from  moltr.calculator import Calculator, MIN_SIGMOID_ARG, MAX_SIGMOID_ARG
+# sys.path.insert(0, './')
+# from  moltr.calculator import Calculator, MIN_SIGMOID_ARG, MAX_SIGMOID_ARG
 from  moltr.lambdaobj import get_gradients
+
+def get_query_boundaries(groups):
+    assert(len(groups) > 0)
+    query_boundaries = [0] + list(np.cumsum(groups))
+    return query_boundaries
+
+class Calculator:
+    def __init__(self, gains, groups, k):
+        self.query_boundaries = get_query_boundaries(groups)
+        self.gains = gains
+        self.k = k
+        self.discounts = Calculator._fill_discount_table(np.max(groups), k)
+
+        # print("Computing inverse_max_dcg-s..")
+        self.inverse_max_dcgs = Calculator._fill_inverse_max_dcg_table(
+            self.gains,
+            self.query_boundaries,
+            self.discounts,
+            k
+        )
+        # print("Computing sigmoids..")
+        self.sigmoids, self.sigmoid_idx_factor = Calculator._fill_sigmoid_table(
+            N_SIGMOID_BINS,
+            MIN_SIGMOID_ARG,
+            MAX_SIGMOID_ARG
+        )
+
+    def get_sigmoid(self, score):
+        if score <= MIN_SIGMOID_ARG:
+            return self.sigmoids[0]
+        elif score >= MAX_SIGMOID_ARG:
+            return self.sigmoids[-1]
+        else:
+            return self.sigmoids[int((score - MIN_SIGMOID_ARG) * self.sigmoid_idx_factor)]
+
+    def compute_ndcg(self, scores):
+        dcgs = np.zeros(len(self.query_boundaries) - 1)
+
+        for i in range(len(self.query_boundaries) - 1):
+            order = np.argsort(scores[self.query_boundaries[i]:self.query_boundaries[i + 1]])[::-1]
+            g = np.array(self.gains[self.query_boundaries[i]:self.query_boundaries[i + 1]])[order][:self.k]
+            dcgs[i] = np.sum(g * self.discounts[1:(len(g) + 1)])
+        return np.mean(dcgs * self.inverse_max_dcgs)
+
+    @staticmethod
+    def _fill_discount_table(max_group_length, k):
+        discounts = np.zeros(1 + max_group_length)
+        m = min(max_group_length, k)
+        discounts[1:(1 + m)] = 1 / np.log2(1 + np.arange(1, m + 1))
+        return discounts
+
+    @staticmethod
+    def _fill_inverse_max_dcg_table(gains, query_boundaries, discounts, k):
+        inverse_max_dcgs = np.zeros(len(query_boundaries) - 1)
+
+        for i in range(len(query_boundaries) - 1):
+            g = np.sort(gains[query_boundaries[i]:query_boundaries[i + 1]])[::-1][:k]
+            assert(len(discounts) > len(g))
+            max_dcg = np.sum(g * discounts[1:(len(g) + 1)])
+            assert(max_dcg > 0)
+            inverse_max_dcgs[i] = 1 / max_dcg
+        return inverse_max_dcgs
+
+    @staticmethod
+    def _fill_sigmoid_table(n_sigmoid_bins, min_sigmoid_arg, max_sigmoid_arg):
+        sigmoid_idx_factor = n_sigmoid_bins / (max_sigmoid_arg - min_sigmoid_arg)
+        sigmoids = 2.0 / (1 + np.exp(2.0 *
+                                     (np.arange(n_sigmoid_bins)
+                                      / sigmoid_idx_factor + min_sigmoid_arg)))
+
+        return sigmoids, sigmoid_idx_factor
 
 def set_group_for_dataset(data_path, query_id_column):
     with open(data_path, 'r') as fid:
@@ -263,13 +337,13 @@ if __name__ == '__main__':
 
     logging.basicConfig(stream=sys.stderr)
 
-    # _create_local_directories()
-    # _copy_tree_config_locally(args.tree_config_path, _LOCAL_TREE_CONFIG_PATH)
+    _create_local_directories()
+    _copy_tree_config_locally(args.tree_config_path, _LOCAL_TREE_CONFIG_PATH)
     tree_params = _parse_tree_params(_LOCAL_TREE_CONFIG_PATH, extra_args)
 
     query_id_column = _extract_query_id_column(tree_params)
 
-    # _copy_bz_features_locally(args.bz_features_path, _LOCAL_BZ_FEATURES_DIR)
+    _copy_bz_features_locally(args.bz_features_path, _LOCAL_BZ_FEATURES_DIR)
     _create_train_valid_files(args.train_ratio, query_id_column)
     _train_model_report_metrics(tree_params,
                                 args.make_validation_ndcg_purchase_only)
