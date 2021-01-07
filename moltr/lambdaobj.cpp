@@ -3,11 +3,8 @@
 /* BEGIN: Cython Metadata
 {
     "distutils": {
-        "depends": [
-            "argsort.h"
-        ],
+        "depends": [],
         "include_dirs": [
-            ".",
             "/Users/yfu/.pyenv/versions/3.8.6/lib/python3.8/site-packages/numpy-1.20.0rc2-py3.8-macosx-10.15-x86_64.egg/numpy/core/include"
         ],
         "language": "c++",

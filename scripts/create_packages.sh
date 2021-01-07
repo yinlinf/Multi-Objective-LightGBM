@@ -26,9 +26,10 @@ gsutil cp gs://etsy-mlinfra-prod-libraries-4kin/buzzsaw/Buzzsaw-"$BUZZSAW_VERSIO
 
 #Get the moltr package
 #git clone --single-branch --branch "master" "https://github.com/akurennoy/moltr.git" /tmp/moltr
-cd $WORK_DIR/lightgbm_ai_platform/moltr
-python setup.py sdist
-cp dist/*.tar.gz $PACKAGES_OUTPUT_DIR
+#cd $WORK_DIR/lightgbm_ai_platform/moltr
+#python setup.py sdist
+#cp dist/*.tar.gz $PACKAGES_OUTPUT_DIR
 
 #Clean up
 rm -rf /tmp/dresden
+rm -rf $WORK_DIR/lightgbm_ai_platform/moltr/dist

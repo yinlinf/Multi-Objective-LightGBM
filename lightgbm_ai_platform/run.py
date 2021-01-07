@@ -35,7 +35,7 @@ from d_lgbm.utils import sparse_vector_string_extract_column
 import collections
 # sys.path.insert(0, './')
 # from  moltr.calculator import Calculator, MIN_SIGMOID_ARG, MAX_SIGMOID_ARG
-from  moltr.lambdaobj import get_gradients
+from lambdaobj import get_gradients
 
 def get_query_boundaries(groups):
     assert(len(groups) > 0)
