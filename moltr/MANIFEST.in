@@ -1,0 +1,5 @@
+
+include argsort.cpp
+include argsort.h
+include argsort.pxd
+include lambdaobj.pyx
