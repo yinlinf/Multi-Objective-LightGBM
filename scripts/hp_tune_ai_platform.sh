@@ -1,7 +1,7 @@
 #!/bin/bash
 
-JOB_NAME="moltr_lgbm_test3_1"
-HPTUNING_CONFIG_FILE="./scripts/example_hp_config.yaml"
+JOB_NAME="moltr_lgbm_exp2_1day"
+HPTUNING_CONFIG_FILE="./scripts/example_hp_config_big_disk.yaml"
 PROJECT="etsy-sr-etl-prod"
 STAGING_BUCKET=gs://etldata-prod-search-ranking-data-hkwv8r/
 MACHINE_TYPE="n1-highcpu-32"
