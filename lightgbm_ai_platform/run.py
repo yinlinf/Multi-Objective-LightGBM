@@ -33,7 +33,7 @@ MAX_SIGMOID_ARG = 25
 
 from d_lgbm.utils import sparse_vector_string_extract_column
 import collections
-# sys.path.insert(0, './')
+# sys.path.insert(0, '../')
 # from  moltr.calculator import Calculator, MIN_SIGMOID_ARG, MAX_SIGMOID_ARG
 from lambdaobj import get_gradients
 
@@ -96,6 +96,9 @@ class Calculator:
             assert(len(discounts) > len(g))
             max_dcg = np.sum(g * discounts[1:(len(g) + 1)])
             assert(max_dcg > 0)
+            if max_dcg == 0:
+                print(query_boundaries[i])
+                max_dcg = 0.1 * discounts[1]
             inverse_max_dcgs[i] = 1 / max_dcg
         return inverse_max_dcgs
 
@@ -108,37 +111,6 @@ class Calculator:
 
         return sigmoids, sigmoid_idx_factor
 
-def set_group_for_dataset(data_path, query_id_column):
-    with open(data_path, 'r') as fid:
-        lines = fid.readlines()
-    query_ids = []
-    for line_idx, line in enumerate(lines):
-        line_query_id = int(sparse_vector_string_extract_column(line, query_id_column))
-        query_ids += [line_query_id]
-    count = collections.Counter(query_ids)
-    groups = list(count.values())
-    data = lgb.Dataset(data_path, free_raw_data=False)
-    data.set_group(groups)
-    return data
-
-
-def create_new_labels(dataset:lgb.Dataset):
-    dataset.construct()
-    labels = np.array(dataset.get_label())
-
-    labels_purchase = np.zeros(len(labels))
-    labels_purchase[labels == 1.0] = 1.0
-    labels_purchase[labels == 2.0] = 3.0
-    labels_purchase[labels == 3.0] = 7.0
-    labels_purchase[labels == 4.0] = 15.0
-    dataset.labels_purchase = labels_purchase
-    logging.info(f"Frequency of purchase labels:{collections.Counter(labels_purchase)}")
-
-    labels_click = np.zeros(len(labels))
-    labels_click[labels != _NOTHING_LABEL] = 1.0
-    dataset.labels_click = labels_click
-    logging.info(f"Frequency of click labels:{collections.Counter(labels_click)}")
-    return dataset
 
 def get_grad_hess(labels, preds, groups, calculator):
     grad = np.zeros(len(preds))
@@ -160,33 +132,66 @@ def get_grad_hess(labels, preds, groups, calculator):
                   np.ascontiguousarray(hess))
     return grad, hess
 
+def set_group_for_dataset(data_path, query_id_column):
+    last_query_id = None
+    group_size = 0
+    groups = []
+    for line in open(data_path, 'r'):
+        line_query_id = int(sparse_vector_string_extract_column(line, query_id_column))
+        group_size += 1
+
+        if last_query_id != line_query_id:
+            if last_query_id is not None:
+                groups.append(group_size - 1)
+            #on this line we switch to a new query
+            last_query_id = line_query_id
+            group_size = 1
+    groups.append(group_size)
+    data = lgb.Dataset(data_path, free_raw_data=False)
+    data.set_group(groups)
+    return data
 
 def combined_objective(preds, dataset):
     groups = dataset.get_group()
+    labels = dataset.get_label()
+    labels_purchase = np.zeros(len(labels))
+    # labels_purchase[labels == 1.0] = 1.0
+    # labels_purchase[labels == 2.0] = 3.0
+    # labels_purchase[labels == 3.0] = 7.0
+    labels_purchase[labels == 4.0] = 1.0
+    labels_click = np.zeros(len(labels))
+    labels_click[labels != 0] = 1.0
+    calculator_1 = Calculator(labels_purchase, groups, 10)
+    calculator_2 = Calculator(labels_click, groups, 10)
     if len(groups) == 0:
         raise Error("Group/query data should not be empty.")
     else:
         grad_1, hess_1 = get_grad_hess(
-            dataset.labels_purchase, preds, groups, dataset.calculator_1
+            labels_purchase, preds, groups, calculator_1
         )
         grad_2, hess_2 = get_grad_hess(
-            dataset.labels_click, preds, groups, dataset.calculator_2
+            labels_click, preds, groups, calculator_2
         )
         alpha = dataset.alpha
         return alpha * grad_1 + (1 - alpha) * grad_2, alpha * hess_1 + (1 - alpha) * hess_2
 
 def combined_eval(preds, dataset):
-    ndcg_1 = dataset.calculator_1.compute_ndcg(preds)
-    ndcg_2 = dataset.calculator_2.compute_ndcg(preds)
+    groups = dataset.get_group()
+    labels = dataset.get_label()
+    labels_purchase = np.zeros(len(labels))
+    # labels_purchase[labels == 1.0] = 1.0
+    # labels_purchase[labels == 2.0] = 3.0
+    # labels_purchase[labels == 3.0] = 7.0
+    labels_purchase[labels == 4.0] = 15.0
+    labels_click = np.zeros(len(labels))
+    labels_click[labels != 0] = 1.0
+    calculator_1 = Calculator(labels_purchase, groups, 10)
+    calculator_2 = Calculator(labels_click, groups, 10)
+    ndcg_1 = calculator_1.compute_ndcg(preds)
+    ndcg_2 = calculator_2.compute_ndcg(preds)
     is_higher_better = True
     return [("ndcg_1", ndcg_1, is_higher_better),
             ("ndcg_2", ndcg_2, is_higher_better)]
-
-def DatasetWithTwoLabels(dataset, alpha):
-    dataset.calculator_1 = Calculator(dataset.labels_purchase, dataset.get_group(), 10)
-    dataset.calculator_2 = Calculator(dataset.labels_click, dataset.get_group(), 10)
-    dataset.alpha = alpha
-    return dataset
 
 
 def _run_shell_command(command:str):
@@ -255,27 +260,25 @@ def _make_validation_labels_purchase_only(valid_ds:lgb.Dataset):
 
 def _train_model_report_metrics(tree_params,
                                 make_validation_labels_purchase_only):
-    train_ds = set_group_for_dataset(_LOCAL_TRAIN_FILE, query_id_column)
-    valid_ds = set_group_for_dataset(_LOCAL_VALID_FILE, query_id_column)
-    create_new_labels(train_ds)
-    create_new_labels(valid_ds)
-
-    if make_validation_labels_purchase_only:
-        _make_validation_labels_purchase_only(valid_ds)
+    logging.info("setting group for dataset...")
+    train_data = set_group_for_dataset(_LOCAL_TRAIN_FILE, query_id_column)
+    valid_data = set_group_for_dataset(_LOCAL_VALID_FILE, query_id_column)
 
     alpha_values = np.arange(0.0, 1.1, 0.1)
     best_eval_result = []
     for alpha in alpha_values:
         evals_result = {}
-        train_data = DatasetWithTwoLabels(train_ds, alpha)
-        valid_data = DatasetWithTwoLabels(valid_ds, alpha)
-        model =lgb.train(params=tree_params,
+        train_data.alpha = alpha
+        valid_data.alpha = alpha
+        logging.info("Training model...")
+        lgb.train(params=tree_params,
                          train_set=train_data,
                          valid_sets=[valid_data],
                          fobj=combined_objective,
                          feval=combined_eval,
                          # callbacks=[lgb.print_evaluation()],
-                         evals_result=evals_result)
+                         evals_result=evals_result
+                         )
         best_eval_result.append(_get_best_eval_result(evals_result))
     df = pandas.DataFrame(zip(alpha_values, best_eval_result))
     print(df)
@@ -342,7 +345,6 @@ if __name__ == '__main__':
     tree_params = _parse_tree_params(_LOCAL_TREE_CONFIG_PATH, extra_args)
 
     query_id_column = _extract_query_id_column(tree_params)
-
     _copy_bz_features_locally(args.bz_features_path, _LOCAL_BZ_FEATURES_DIR)
     _create_train_valid_files(args.train_ratio, query_id_column)
     _train_model_report_metrics(tree_params,
