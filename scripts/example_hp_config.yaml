@@ -1,6 +1,6 @@
 trainingInput:
   args:
-  - --bz-features-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/data/pyspark_buzzsaw_features_lambdamart_window_35days_perso_v2_newqtc/2020-11-28_2021-01-01/results/part-00*
+  - --bz-features-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/data/pyspark_buzzsaw_features_lambdamart_window_35days_perso_v2_newqtc/2020-11-28_2021-01-01/results/part-000*
   - --tree-config-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_personalization.conf
   - --num_trees=100 #Override the default parameter for num_trees, don't HP tune on this
 #  hyperparameters:

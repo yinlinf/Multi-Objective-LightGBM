@@ -5,7 +5,7 @@
     "distutils": {
         "depends": [],
         "include_dirs": [
-            "/Users/yfu/.pyenv/versions/3.8.6/lib/python3.8/site-packages/numpy-1.20.0rc2-py3.8-macosx-10.15-x86_64.egg/numpy/core/include"
+            "/Users/yfu/.pyenv/versions/3.7.3/lib/python3.7/site-packages/numpy/core/include"
         ],
         "language": "c++",
         "name": "lambdaobj",

@@ -3,20 +3,20 @@ trainingInput:
   masterType: n1-highmem-64
   masterConfig:
     diskConfig:
-      bootDiskSizeGb: 1500
+      bootDiskSizeGb: 3000
       bootDiskType: pd-ssd
   args:
-    - --bz-features-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/data/pyspark_buzzsaw_features_lambdamart_window_35days_perso_v2_newqtc/2020-11-28_2021-01-01/results/part-*
-    - --tree-config-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_personalization.conf
+    - --bz-features-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/data/pyspark_buzzsaw_features_lambdamart_window_35days_perso_v2_newqtc/2020-12-05_2021-01-08/results/part-000*
+    - --tree-config-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_fe_v2.conf
     - --num_trees=100 #Override the default parameter for num_trees, don't HP tune on this
-  hyperparameters:
-    goal: MAXIMIZE
-    hyperparameterMetricTag: validation_ndcg
-    maxTrials: 1
-    maxParallelTrials: 1
-    params: #HP Tune on these
-      - parameterName: num_leaves
-        type: INTEGER
-        minValue: 16
-        maxValue: 127
-        scaleType: UNIT_LINEAR_SCALE
+#  hyperparameters:
+#    goal: MAXIMIZE
+#    hyperparameterMetricTag: validation_ndcg
+#    maxTrials: 1
+#    maxParallelTrials: 1
+#    params: #HP Tune on these
+#      - parameterName: num_leaves
+#        type: INTEGER
+#        minValue: 16
+#        maxValue: 127
+#        scaleType: UNIT_LINEAR_SCALE
