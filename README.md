@@ -1,19 +1,19 @@
 # Multi-Objective-LightGBM
 
-Overview
+## Overview
 This repository provides the option of training LightGBM models with customized objective function.
 Note the repo is forked from this https://github.etsycorp.com/ebenjamin/LightGBM_HP_Tuning repo for hyperparameter tuning. 
 The usages are similar. 
 
-Usage
+## Usage
 In all commands below, run the command from the repository root.
 
-To run:
+## To run:
 
 Run bash ./scripts/create_packages.sh. This will create .tar.gz package files for Dresden and Buzzsaw which AI Platform needs to import those libraries. It will save these to ./packages.
 You only need to do this once!
  
-Create a HP tuning YAML file:
+## Create a HP tuning YAML file:
 See example_hp_config.yaml for an example on small data, and example_hp_config_big_disk.yaml for an example on full production data making use of more disk space.
 Rule of thumb: disk space should be about 2.5x size of buzzsaw features. Default is 100GB if not specified.
 The schema of this YAML is an AI Platform standard, documented here
