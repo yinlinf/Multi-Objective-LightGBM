@@ -18,9 +18,9 @@ You only need to do this once!
  * Rule of thumb: disk space should be about 2.5x size of buzzsaw features. Default is 100GB if not specified.
  * The schema of this YAML is an AI Platform standard, documented here
  * The only mandatory args are:
-  ** --bz-features-path: Path to buzzsaw feature files for model training/validation.
-  ** --bz_features_path_test: Path to buzzsaw features files for model testing. Typically use next day's data to test.
-  ** --tree-config-path: Path to a LightGBM tree configuration file, e.g gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_lambdarank.conf
+  *item --bz-features-path: Path to buzzsaw feature files for model training/validation.
+  *item --bz_features_path_test: Path to buzzsaw features files for model testing. Typically use next day's data to test.
+  *item --tree-config-path: Path to a LightGBM tree configuration file, e.g gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_lambdarank.conf
 
  * Optionally, you can pass any LightGBM parameters (see here) into args, e.g --num_trees=100.
 Anything passed here will override the base --tree-config-path settings.
