@@ -18,13 +18,13 @@ You only need to do this once!
  * Rule of thumb: disk space should be about 2.5x size of buzzsaw features. Default is 100GB if not specified.
  * The schema of this YAML is an AI Platform standard, documented here
  * The only mandatory args are:
-  * --bz-features-path: Path to buzzsaw feature files for model training/validation.
-  * --bz_features_path_test: Path to buzzsaw features files for model testing. Typically use next day's data to test.
-  * --tree-config-path: Path to a LightGBM tree configuration file, e.g gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_lambdarank.conf
+  ** --bz-features-path: Path to buzzsaw feature files for model training/validation.
+  ** --bz_features_path_test: Path to buzzsaw features files for model testing. Typically use next day's data to test.
+  ** --tree-config-path: Path to a LightGBM tree configuration file, e.g gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_lambdarank.conf
 
  * Optionally, you can pass any LightGBM parameters (see here) into args, e.g --num_trees=100.
 Anything passed here will override the base --tree-config-path settings.
  * Similarly, all hyperparameters should use the names of LightGBM parameters.
 3. Modify and run ./scripts/hp_tune_ai_platform.sh to your liking:
 You may want to edit JOB_NAME, HPTUNING_CONFIG_FILE, PROJECT, and STAGING_BUCKET
-You now monitor your jobs on the AI Platform Jobs Page! When you click on your job you can then see validation score for each trial! Image of Job
+4. You now monitor your jobs on the AI Platform Jobs Page! When you click on your job you can then see validation score for each trial! Image of Job
