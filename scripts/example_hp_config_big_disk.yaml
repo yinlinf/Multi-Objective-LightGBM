@@ -7,8 +7,8 @@ trainingInput:
       bootDiskSizeGb: 3000
       bootDiskType: pd-ssd
   args:
-    - --bz-features-path=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/purchase/data/pyspark_buzzsaw_features/2021-01-06_2021-01-08/results/part-00*
-    - --bz-features-path-test=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/purchase/data/pyspark_buzzsaw_features/2021-01-09_2021-01-11/results/part-00*
+    - --bz-features-path=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/purchase/data/pyspark_buzzsaw_features/2021-01-06_2021-01-08/results/part-*
+    - --bz-features-path-test=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/purchase/data/pyspark_buzzsaw_features/2021-01-09_2021-01-11/results/part-*
     - --tree-config-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_fe_v2.conf
     - --num_trees=100 #Override the default parameter for num_trees, don't HP tune on this
 #  hyperparameters:

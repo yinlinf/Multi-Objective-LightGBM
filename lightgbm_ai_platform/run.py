@@ -15,7 +15,7 @@ from d_lgbm.utils import sparse_vector_string_extract_column
 import collections
 from lambdaobj import get_gradients
 
-_DATA_DIR = "/tmp/data"
+_DATA_DIR = "tmp/data"
 _DATASET_DIR = "tmp/dataset"
 
 _LOCAL_BZ_FEATURES_DIR = f"{_DATA_DIR}/features"
@@ -146,21 +146,21 @@ def set_group_for_dataset(data_path, query_id_column):
             last_query_id = line_query_id
             group_size = 1
     groups.append(group_size)
+    np.asarray(groups, dtype=np.uint8)
     data = lgb.Dataset(data_path, free_raw_data=False)
     data.set_group(groups)
     return data
 
-def combined_objective(preds, dataset):
+def customized_objective_click(preds, dataset):
     # define customized objective function as
     # alpha * purchase_ndcg + (1 - alpha) * click_ndcg
     groups = dataset.get_group()
     labels = dataset.get_label()
     # prepare labels for purchase_ndcg and click_ndcg seperately
-    labels_purchase = np.zeros(len(labels))
-    # labels_purchase[labels == 3.0] = 1.0
-    labels_purchase[labels == 4.0] = 1.0
-    labels_click = np.zeros(len(labels))
-    labels_click[labels != 0] = 1.0
+    labels_purchase = np.zeros(len(labels), dtype=np.uint8)
+    labels_purchase[labels == 4.0] = 1
+    labels_click = np.zeros(len(labels), dtype=np.uint8)
+    labels_click[labels != 0] = 1
     calculator_1 = Calculator(labels_purchase, groups, MAX_NDCG_POS)
     calculator_2 = Calculator(labels_click, groups, MAX_NDCG_POS)
     if len(groups) == 0:
@@ -175,18 +175,15 @@ def combined_objective(preds, dataset):
         alpha = dataset.alpha
         return alpha * grad_1 + (1 - alpha) * grad_2, alpha * hess_1 + (1 - alpha) * hess_2
 
-def combined_eval(preds, dataset):
+def customized_eval_click(preds, dataset):
     # define customized evaluation function
     dataset.construct()
     groups = dataset.get_group()
     labels = dataset.get_label()
-    labels_purchase = np.zeros(len(labels))
-    # labels_purchase[labels == 1.0] = 1.0
-    # labels_purchase[labels == 2.0] = 3.0
-    # labels_purchase[labels == 3.0] = 7.0
-    labels_purchase[labels == 4.0] = 1.0
-    labels_click = np.zeros(len(labels))
-    labels_click[labels != 0] = 1.0
+    labels_purchase = np.zeros(len(labels), dtype=np.uint8)
+    labels_purchase[labels == 4.0] = 1
+    labels_click = np.zeros(len(labels), dtype=np.uint8)
+    labels_click[labels != 0] = 1
     calculator_1 = Calculator(labels_purchase, groups, 10)
     calculator_2 = Calculator(labels_click, groups, 10)
     ndcg_1 = calculator_1.compute_ndcg(preds)
@@ -200,11 +197,11 @@ def report_metrics(preds, dataset):
     dataset.construct()
     groups = dataset.get_group()
     labels = dataset.get_label()
-    labels_purchase = np.zeros(len(labels))
+    labels_purchase = np.zeros(len(labels), dtype=np.uint8)
     labels_purchase[labels == 4.0] = 1.0 # purchase only
-    labels_click = np.zeros(len(labels))
+    labels_click = np.zeros(len(labels), dtype=np.uint8)
     labels_click[labels >= 1] = 1.0 # click and above
-    labels_cart = np.zeros(len(labels))
+    labels_cart = np.zeros(len(labels), dtype=np.uint8)
     labels_cart[labels >= 3] = 1.0 # cart and above
     calculator_1 = Calculator(labels_purchase, groups, 10)
     calculator_2 = Calculator(labels_click, groups, 10)
@@ -296,11 +293,6 @@ def _train_model_report_metrics(tree_params,
     train_data = set_group_for_dataset(_LOCAL_TRAIN_FILE, query_id_column)
     valid_data = set_group_for_dataset(_LOCAL_VALID_FILE, query_id_column)
     test_data = set_group_for_dataset(_LOCAL_TEST_FILE, query_id_column)
-    # train_data.construct()
-    # labels = train_data.get_label()
-    # print('=====training data labels info=======')
-    # print(collections.Counter(labels))
-
     alpha_values = np.arange(0.0, 1.1, 0.25)
     best_eval_result = []
 
@@ -313,13 +305,13 @@ def _train_model_report_metrics(tree_params,
         model = lgb.train(params=tree_params,
                          train_set=train_data,
                          valid_sets=[valid_data],
-                         fobj=combined_objective,
-                         feval=combined_eval,
+                         fobj=customized_objective_click,
+                         feval=customized_eval_click,
                          # callbacks=[lgb.print_evaluation()],
                          evals_result=evals_result,
                         keep_training_booster=True
                          )
-        model.save_model('/tmp/model_%s.txt' % alpha)
+        model.save_model('tmp/model_%s.txt' % alpha)
         # model = lgb.Booster(model_file='model/model_%s.txt' % alpha)
         test_data.alpha = alpha
         y_pred = model.predict(_LOCAL_TEST_FILE)
