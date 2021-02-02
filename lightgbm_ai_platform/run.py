@@ -147,6 +147,8 @@ def set_group_for_dataset(data_path, query_id_column):
             last_query_id = line_query_id
             group_size = 1
     groups.append(group_size)
+    np.asarray(groups, dtype=np.uint8)
+    # data = lgb.Dataset(data_path, free_raw_data=False, params={'two_round':True})
     data = lgb.Dataset(data_path, free_raw_data=False)
     data.set_group(groups)
     return data
@@ -154,12 +156,13 @@ def set_group_for_dataset(data_path, query_id_column):
 def combined_objective(preds, dataset):
     groups = dataset.get_group()
     labels = dataset.get_label()
-    labels_purchase = np.zeros(len(labels))
+    print('num of labels: %d' %len(labels))
+    labels_purchase = np.zeros(len(labels), dtype=np.uint8)
     # labels_purchase[labels == 1.0] = 1.0
     # labels_purchase[labels == 2.0] = 3.0
     # labels_purchase[labels == 3.0] = 7.0
     labels_purchase[labels == 4.0] = 1.0
-    labels_click = np.zeros(len(labels))
+    labels_click = np.zeros(len(labels), dtype=np.uint8)
     labels_click[labels != 0] = 1.0
     calculator_1 = Calculator(labels_purchase, groups, 10)
     calculator_2 = Calculator(labels_click, groups, 10)
@@ -178,12 +181,12 @@ def combined_objective(preds, dataset):
 def combined_eval(preds, dataset):
     groups = dataset.get_group()
     labels = dataset.get_label()
-    labels_purchase = np.zeros(len(labels))
+    labels_purchase = np.zeros(len(labels), dtype=np.uint8)
     # labels_purchase[labels == 1.0] = 1.0
     # labels_purchase[labels == 2.0] = 3.0
     # labels_purchase[labels == 3.0] = 7.0
     labels_purchase[labels == 4.0] = 15.0
-    labels_click = np.zeros(len(labels))
+    labels_click = np.zeros(len(labels), dtype=np.uint8)
     labels_click[labels != 0] = 1.0
     calculator_1 = Calculator(labels_purchase, groups, 10)
     calculator_2 = Calculator(labels_click, groups, 10)
@@ -264,7 +267,8 @@ def _train_model_report_metrics(tree_params,
     train_data = set_group_for_dataset(_LOCAL_TRAIN_FILE, query_id_column)
     valid_data = set_group_for_dataset(_LOCAL_VALID_FILE, query_id_column)
 
-    alpha_values = np.arange(0.0, 1.1, 0.1)
+    # alpha_values = np.arange(0.0, 1.1, 0.5)
+    alpha_values = [0.5]
     best_eval_result = []
     for alpha in alpha_values:
         evals_result = {}
@@ -272,13 +276,12 @@ def _train_model_report_metrics(tree_params,
         valid_data.alpha = alpha
         logging.info("Training model...")
         lgb.train(params=tree_params,
-                         train_set=train_data,
-                         valid_sets=[valid_data],
-                         fobj=combined_objective,
-                         feval=combined_eval,
-                         # callbacks=[lgb.print_evaluation()],
-                         evals_result=evals_result
-                         )
+                  train_set=train_data,
+                  valid_sets=[valid_data],
+                  fobj=combined_objective,
+                  feval=combined_eval,
+                  # callbacks=[lgb.print_evaluation()],
+                  evals_result=evals_result)
         best_eval_result.append(_get_best_eval_result(evals_result))
     df = pandas.DataFrame(zip(alpha_values, best_eval_result))
     print(df)
