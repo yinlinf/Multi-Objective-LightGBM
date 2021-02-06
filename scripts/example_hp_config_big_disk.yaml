@@ -8,8 +8,9 @@ trainingInput:
       bootDiskType: pd-ssd
   args:
     - --bz-features-path=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/purchase/data/pyspark_buzzsaw_features/2021-01-06_2021-01-08/results/part-*
-    - --bz-features-path-test=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/purchase/data/pyspark_buzzsaw_features/2021-01-09_2021-01-11/results/part-*
+    - --bz-features-path-test=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/purchase/data/pyspark_buzzsaw_features/2021-01-09_2021-01-11/results/part-00*
     - --tree-config-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_fe_v2.conf
+    - --pretrained-model-path=gs://etsy-mlinfra-prod-shared-user-scratch-data-6bsh/storage/csr/csr-organic-dresden-lgbm_model_lambdamart_perso_v2_window_35days_newqtc/2020-12-29-2021-02-01.csr_dresden_lgbm_model_lambdamart_perso_v2_window_35days_newqtc/model
     - --num_trees=100 #Override the default parameter for num_trees, don't HP tune on this
 #  hyperparameters:
 #    goal: MAXIMIZE

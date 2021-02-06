@@ -1,6 +1,6 @@
 #!/bin/bash
 
-JOB_NAME="multi_lgbm_exp5_1"
+JOB_NAME="multi_lgbm_price_8"
 HPTUNING_CONFIG_FILE="./scripts/example_hp_config_big_disk.yaml"
 PROJECT="etsy-sr-etl-prod"
 STAGING_BUCKET=gs://etldata-prod-search-ranking-data-hkwv8r/
