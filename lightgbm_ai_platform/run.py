@@ -157,6 +157,27 @@ def set_group_for_dataset(data_path, query_id_column):
             last_query_id = line_query_id
             group_size = 1
 
+        # line_price = sparse_vector_string_extract_column(line, price_id_column)
+        # if line_price is None:
+        #     missing_prices.append(line_query_id)
+        #     line_price = 0.0001
+        # log_price = np.log2(1 + line_price)
+        # prices.append(log_price)
+    # print('Listings Missing Price:', collections.Counter(missing_prices))
+    # print('Percent of Missing Price: %.2f %%' % (len(missing_prices) / len(prices) * 100))
+    groups.append(group_size)
+    np.asarray(groups, dtype=np.uint8)
+    # np.asarray(prices, dtype=np.float16)
+    data = lgb.Dataset(data_path, free_raw_data=False)
+    data.set_group(groups)
+    # data = lgb.Dataset(data_path, group=groups)
+    # data.labels_price = prices
+    return data
+
+def set_price_label_for_dataset(data, price_id_column):
+    prices = []
+    missing_prices = []
+    for line in open(data_path, 'r'):
         line_price = sparse_vector_string_extract_column(line, price_id_column)
         if line_price is None:
             missing_prices.append(line_query_id)
@@ -165,15 +186,11 @@ def set_group_for_dataset(data_path, query_id_column):
         prices.append(log_price)
     # print('Listings Missing Price:', collections.Counter(missing_prices))
     print('Percent of Missing Price: %.2f %%' % (len(missing_prices) / len(prices) * 100))
-    groups.append(group_size)
-    np.asarray(groups, dtype=np.uint8)
     np.asarray(prices, dtype=np.float16)
-    data = lgb.Dataset(data_path, free_raw_data=False)
-    data.set_group(groups)
     data.labels_price = prices
     return data
 
-def set_days_label_for_dataset(data_path, daysSinceOriginalCreate_id_column):
+def set_days_label_for_dataset(data, daysSinceOriginalCreate_id_column):
     days_created = []
     missing_days = []
     for line in open(data_path, 'r'):
@@ -187,9 +204,8 @@ def set_days_label_for_dataset(data_path, daysSinceOriginalCreate_id_column):
     print('Percent of Missing Days: %.2f %%' % (len(missing_days) / len(days_created) * 100))
     np.asarray(days_created, dtype=np.float16)
     # print(collections.Counter(days_created))
-    data = lgb.Dataset(data_path, free_raw_data=False)
     data.labels_daysCreated = days_created
-    return days_created
+    return data
 
 
 def customized_objective_click(preds, dataset):
@@ -249,11 +265,11 @@ def report_metrics_1(preds, dataset):
     calculator_3 = Calculator(labels_cart, groups, 10)
     ndcg_1 = calculator_1.compute_ndcg(preds)
     ndcg_2 = calculator_2.compute_ndcg(preds)
-    ndcg_3 = calculator_3.compute_ndcg(preds)
-    y_hat = (preds > 0.5)
-    auc = metrics.roc_auc_score(labels_purchase, preds)
-    acc = np.mean(labels_purchase == y_hat)
-    return [ndcg_1, ndcg_2, ndcg_3, auc, acc]
+    # ndcg_3 = calculator_3.compute_ndcg(preds)
+    # y_hat = (preds > 0.5)
+    # auc = metrics.roc_auc_score(labels_purchase, preds)
+    # acc = np.mean(labels_purchase == y_hat)
+    return [ndcg_1, ndcg_2]
 
 def customized_objective_price(preds, dataset):
     groups = dataset.get_group()
@@ -318,6 +334,8 @@ def _copy_bz_features_locally(gcs_bz_features_path, local_bz_features_path):
 def _copy_model_locally(pretrained_model_path, local_model_path):
     _run_shell_command(f"gsutil -m cp -r {pretrained_model_path} {local_model_path}/")
 
+def _copy_model_to_gcs(post_trained_model_path, gcs_model_path):
+    _run_shell_command(f"gsutil -m cp {post_trained_model_path} {gcs_model_path}/")
 
 def _parse_tree_config_file(config_path):
     with open(config_path, 'r') as fid:
@@ -381,10 +399,9 @@ def _train_model_report_metrics(tree_params,
     train_data = set_group_for_dataset(_LOCAL_TRAIN_FILE, query_id_column)
     valid_data = set_group_for_dataset(_LOCAL_VALID_FILE, query_id_column)
     test_data = set_group_for_dataset(_LOCAL_TEST_FILE, query_id_column)
-
     # set_days_label_for_dataset(_LOCAL_TRAIN_FILE, 28)
-    alpha_values = np.arange(0.9, 1.01, 0.02)
-    alpha_values = [0.9]
+    alpha_values = np.arange(0.5, 1.1, 0.25)
+    # alpha_values = [0.9]
     best_eval_result = []
     logging.info("Loading pre-trained model...")
     pretrained_model = lgb.Booster(model_file=f"{_LOCAL_MODEL_PATH}/model")
@@ -397,21 +414,20 @@ def _train_model_report_metrics(tree_params,
         model = lgb.train(params=tree_params,
                          train_set=train_data,
                          valid_sets=[valid_data],
-                         fobj=customized_objective_price,
-                         feval=customized_eval_price,
+                         fobj=customized_objective_click,
+                         feval=customized_eval_click,
                          # callbacks=[lgb.print_evaluation()],
                          evals_result=evals_result,
                          keep_training_booster=True,
                          init_model=pretrained_model,
                          )
-        model.save_model('tmp/model_%s.txt' % alpha)
-
-        # model = lgb.Booster(model_file='model/model_%s.txt' % alpha)
+        model.save_model(f"tmp/model_{alpha}.txt")
+        _copy_model_to_gcs(f"tmp/model_{alpha}.txt", args.output_model_path)
         test_data.alpha = alpha
         logging.info("Predicting on test data...")
         y_pred = model.predict(_LOCAL_TEST_FILE)
         logging.info("Report Metrics on test data ...")
-        test_results = report_metrics_2(y_pred, test_data)
+        test_results = report_metrics_1(y_pred, test_data)
         best_eval_result.append(test_results)
 
     df = pandas.DataFrame.from_records(best_eval_result, columns=['ndcg_1', 'ndcg_2'])
@@ -464,6 +480,7 @@ if __name__ == '__main__':
     ap.add_argument("--tree-config-path")
     ap.add_argument("--train-ratio", default=0.9)
     ap.add_argument("--pretrained-model-path")
+    ap.add_argument("--output-model-path")
     ap.add_argument("--make-validation-ndcg-purchase-only", action="store_true")
     args, extra_args = ap.parse_known_args()
 
@@ -474,11 +491,11 @@ if __name__ == '__main__':
     tree_params = _parse_tree_params(_LOCAL_TREE_CONFIG_PATH, extra_args)
 
     query_id_column = _extract_query_id_column(tree_params)
-    # _copy_bz_features_locally(args.bz_features_path, _LOCAL_BZ_FEATURES_DIR)
-    # _copy_bz_features_locally(args.bz_features_path_test, _LOCAL_BZ_FEATURES_DIR_TEST)
-    # _create_train_valid_files(args.train_ratio, query_id_column)
+    _copy_bz_features_locally(args.bz_features_path, _LOCAL_BZ_FEATURES_DIR)
+    _copy_bz_features_locally(args.bz_features_path_test, _LOCAL_BZ_FEATURES_DIR_TEST)
+    _create_train_valid_files(args.train_ratio, query_id_column)
 
-    # _copy_model_locally(args.pretrained_model_path, _LOCAL_MODEL_PATH)
+    _copy_model_locally(args.pretrained_model_path, _LOCAL_MODEL_PATH)
     _train_model_report_metrics(tree_params,
                                 args.make_validation_ndcg_purchase_only)
 
