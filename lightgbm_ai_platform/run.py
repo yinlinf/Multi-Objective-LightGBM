@@ -28,7 +28,7 @@ _LOCAL_TRAIN_FILE = f"{_DATASET_DIR}/features.train"
 _LOCAL_VALID_FILE = f"{_DATASET_DIR}/features.valid"
 _LOCAL_TEST_FILE = f"{_DATASET_DIR}/features.test"
 _LOCAL_TEST_FILE_NULL = f"{_DATASET_DIR}/features.test_null"
-
+daysSinceOriginalCreate_id_column = 28
 import numpy as np
 import lightgbm as lgb
 
@@ -146,8 +146,8 @@ def set_group_for_dataset(data_path, query_id_column):
     last_query_id = None
     group_size = 0
     groups = []
-    prices = []
-    missing_prices = []
+    days_created = []
+    missing_days = []
     for line in open(data_path, 'r'):
         line_query_id = int(sparse_vector_string_extract_column(line, query_id_column))
         group_size += 1
@@ -157,21 +157,19 @@ def set_group_for_dataset(data_path, query_id_column):
             last_query_id = line_query_id
             group_size = 1
 
-        # line_price = sparse_vector_string_extract_column(line, price_id_column)
-        # if line_price is None:
-        #     missing_prices.append(line_query_id)
-        #     line_price = 0.0001
-        # log_price = np.log2(1 + line_price)
-        # prices.append(log_price)
-    # print('Listings Missing Price:', collections.Counter(missing_prices))
-    # print('Percent of Missing Price: %.2f %%' % (len(missing_prices) / len(prices) * 100))
+        line_days = sparse_vector_string_extract_column(line, daysSinceOriginalCreate_id_column)
+        if line_days is None:
+            missing_days.append(line_query_id)
+            line_days = 180
+        days_created.append(line_days)
+
     groups.append(group_size)
     np.asarray(groups, dtype=np.uint8)
-    # np.asarray(prices, dtype=np.float16)
+    days_created = [7-x if x < 7 else 0.5 for x in days_created]
+    np.asarray(days_created, dtype=np.float16)
     data = lgb.Dataset(data_path, free_raw_data=False)
     data.set_group(groups)
-    # data = lgb.Dataset(data_path, group=groups)
-    # data.labels_price = prices
+    data.labels_daysCreated = days_created
     return data
 
 def set_price_label_for_dataset(data, price_id_column):
@@ -208,114 +206,49 @@ def set_days_label_for_dataset(data, daysSinceOriginalCreate_id_column):
     return data
 
 
-def customized_objective_click(preds, dataset):
+def customized_objective_freshness(preds, dataset):
     # define customized objective function as
     # alpha * purchase_ndcg + (1 - alpha) * click_ndcg
     groups = dataset.get_group()
-    labels = dataset.get_label()
-    # prepare labels for purchase_ndcg and click_ndcg seperately
-    labels_purchase = np.zeros(len(labels), dtype=np.uint8)
-    labels_purchase[labels == 4.0] = 1
-    labels_click = np.zeros(len(labels), dtype=np.uint8)
-    labels_click[labels != 0] = 1
-    calculator_1 = Calculator(labels_purchase, groups, MAX_NDCG_POS)
-    calculator_2 = Calculator(labels_click, groups, MAX_NDCG_POS)
+    calculator_1 = Calculator(dataset.get_label(), groups, MAX_NDCG_POS)
+    calculator_2 = Calculator(dataset.labels_daysCreated, groups, MAX_NDCG_POS)
     if len(groups) == 0:
         raise Error("Group/query data should not be empty.")
     else:
         grad_1, hess_1 = get_grad_hess(
-            labels_purchase, preds, groups, calculator_1
+            dataset.get_label(), preds, groups, calculator_1
         )
         grad_2, hess_2 = get_grad_hess(
-            labels_click, preds, groups, calculator_2
+            dataset.labels_daysCreated, preds, groups, calculator_2
         )
         alpha = dataset.alpha
         return alpha * grad_1 + (1 - alpha) * grad_2, alpha * hess_1 + (1 - alpha) * hess_2
 
-def customized_eval_click(preds, dataset):
+def customized_eval_freshness(preds, dataset):
     # define customized evaluation function
     dataset.construct()
     groups = dataset.get_group()
-    labels = dataset.get_label()
-    labels_purchase = np.zeros(len(labels), dtype=np.uint8)
-    labels_purchase[labels == 4.0] = 1
-    labels_click = np.zeros(len(labels), dtype=np.uint8)
-    labels_click[labels != 0] = 1
-    calculator_1 = Calculator(labels_purchase, groups, 10)
-    calculator_2 = Calculator(labels_click, groups, 10)
+    calculator_1 = Calculator(dataset.get_label(), groups, 10)
+    calculator_2 = Calculator(dataset.labels_daysCreated, groups, 10)
     ndcg_1 = calculator_1.compute_ndcg(preds)
     ndcg_2 = calculator_2.compute_ndcg(preds)
     alpha = dataset.alpha
     combined_ndcg = alpha * ndcg_1 + (1 - alpha) * ndcg_2
     return [("combined_ndcg", combined_ndcg, True)]
 
-def report_metrics_1(preds, dataset):
+def report_metrics_freshness(preds, dataset):
     # define customized metrics for test data
     dataset.construct()
     groups = dataset.get_group()
     labels = dataset.get_label()
     labels_purchase = np.zeros(len(labels), dtype=np.uint8)
     labels_purchase[labels == 4.0] = 1.0 # purchase only
-    labels_click = np.zeros(len(labels), dtype=np.uint8)
-    labels_click[labels >= 1] = 1.0 # click and above
-    labels_cart = np.zeros(len(labels), dtype=np.uint8)
-    labels_cart[labels >= 3] = 1.0 # cart and above
     calculator_1 = Calculator(labels_purchase, groups, 10)
-    calculator_2 = Calculator(labels_click, groups, 10)
-    calculator_3 = Calculator(labels_cart, groups, 10)
+    calculator_2 = Calculator(dataset.labels_daysCreated, groups, 10)
     ndcg_1 = calculator_1.compute_ndcg(preds)
     ndcg_2 = calculator_2.compute_ndcg(preds)
-    # ndcg_3 = calculator_3.compute_ndcg(preds)
-    # y_hat = (preds > 0.5)
-    # auc = metrics.roc_auc_score(labels_purchase, preds)
-    # acc = np.mean(labels_purchase == y_hat)
     return [ndcg_1, ndcg_2]
 
-def customized_objective_price(preds, dataset):
-    groups = dataset.get_group()
-    labels_purchase = dataset.get_label()
-    labels_price = dataset.labels_price
-    calculator_1 = Calculator(labels_purchase, groups, MAX_NDCG_POS)
-    calculator_2 = Calculator(labels_price, groups, MAX_NDCG_POS)
-    if len(groups) == 0:
-        raise Error("Group/query data should not be empty.")
-    else:
-        grad_1, hess_1 = get_grad_hess(
-            labels_purchase, preds, groups, calculator_1
-        )
-        grad_2, hess_2 = get_grad_hess(
-            labels_price, preds, groups, calculator_2
-        )
-        alpha = dataset.alpha
-        return alpha * grad_1 + (1 - alpha) * grad_2, alpha * hess_1 + (1 - alpha) * hess_2
-
-def customized_eval_price(preds, dataset):
-    dataset.construct()
-    groups = dataset.get_group()
-    labels_purchase = dataset.get_label()
-    labels_price = dataset.labels_price
-    calculator_1 = Calculator(labels_purchase, groups, 10)
-    calculator_2 = Calculator(labels_price, groups, 10)
-    ndcg_1 = calculator_1.compute_ndcg(preds)
-    ndcg_2 = calculator_2.compute_ndcg(preds)
-    alpha = dataset.alpha
-    combined_ndcg = alpha * ndcg_1 + (1 - alpha) * ndcg_2
-    return [("combined_ndcg", combined_ndcg, True)]
-
-def report_metrics_2(preds, dataset):
-    # define customized metrics for test data
-    dataset.construct()
-    groups = dataset.get_group()
-    labels_purchase = dataset.get_label()
-    labels_price = dataset.labels_price
-    calculator_1 = Calculator(labels_purchase, groups, 10)
-    calculator_2 = Calculator(labels_price, groups, 10)
-    ndcg_1 = calculator_1.compute_ndcg(preds)
-    ndcg_2 = calculator_2.compute_ndcg(preds)
-    # y_hat = (preds > 0.5)
-    # auc = metrics.roc_auc_score(labels_purchase, preds)
-    # acc = np.mean(labels_purchase == y_hat)
-    return [ndcg_1, ndcg_2]
 
 def _run_shell_command(command:str):
     command_parts = command.split()
@@ -399,7 +332,6 @@ def _train_model_report_metrics(tree_params,
     train_data = set_group_for_dataset(_LOCAL_TRAIN_FILE, query_id_column)
     valid_data = set_group_for_dataset(_LOCAL_VALID_FILE, query_id_column)
     test_data = set_group_for_dataset(_LOCAL_TEST_FILE, query_id_column)
-    # set_days_label_for_dataset(_LOCAL_TRAIN_FILE, 28)
     alpha_values = np.arange(0.5, 1.1, 0.25)
     # alpha_values = [0.9]
     best_eval_result = []
@@ -414,20 +346,20 @@ def _train_model_report_metrics(tree_params,
         model = lgb.train(params=tree_params,
                          train_set=train_data,
                          valid_sets=[valid_data],
-                         fobj=customized_objective_click,
-                         feval=customized_eval_click,
+                         fobj=customized_objective_freshness,
+                         feval=customized_eval_freshness,
                          # callbacks=[lgb.print_evaluation()],
                          evals_result=evals_result,
                          keep_training_booster=True,
                          init_model=pretrained_model,
                          )
-        model.save_model(f"tmp/model_{alpha}.txt")
-        _copy_model_to_gcs(f"tmp/model_{alpha}.txt", args.output_model_path)
+        # model.save_model(f"tmp/model_{alpha}.txt")
+        # _copy_model_to_gcs(f"tmp/model_{alpha}.txt", args.output_model_path)
         test_data.alpha = alpha
         logging.info("Predicting on test data...")
         y_pred = model.predict(_LOCAL_TEST_FILE)
         logging.info("Report Metrics on test data ...")
-        test_results = report_metrics_1(y_pred, test_data)
+        test_results = report_metrics_freshness(y_pred, test_data)
         best_eval_result.append(test_results)
 
     df = pandas.DataFrame.from_records(best_eval_result, columns=['ndcg_1', 'ndcg_2'])
@@ -491,11 +423,11 @@ if __name__ == '__main__':
     tree_params = _parse_tree_params(_LOCAL_TREE_CONFIG_PATH, extra_args)
 
     query_id_column = _extract_query_id_column(tree_params)
-    _copy_bz_features_locally(args.bz_features_path, _LOCAL_BZ_FEATURES_DIR)
-    _copy_bz_features_locally(args.bz_features_path_test, _LOCAL_BZ_FEATURES_DIR_TEST)
-    _create_train_valid_files(args.train_ratio, query_id_column)
-
-    _copy_model_locally(args.pretrained_model_path, _LOCAL_MODEL_PATH)
+    # _copy_bz_features_locally(args.bz_features_path, _LOCAL_BZ_FEATURES_DIR)
+    # _copy_bz_features_locally(args.bz_features_path_test, _LOCAL_BZ_FEATURES_DIR_TEST)
+    # _create_train_valid_files(args.train_ratio, query_id_column)
+    #
+    # _copy_model_locally(args.pretrained_model_path, _LOCAL_MODEL_PATH)
     _train_model_report_metrics(tree_params,
                                 args.make_validation_ndcg_purchase_only)
 
