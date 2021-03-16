@@ -6,10 +6,10 @@ trainingInput:
       bootDiskSizeGb: 3000
       bootDiskType: pd-ssd
   args:
-    - --bz-features-path=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/purchase_7days/data/pyspark_buzzsaw_features/2021-01-06_2021-01-12/results/part-*
-    - --bz-features-path-test=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/purchase_7days/data/pyspark_buzzsaw_features/2021-01-13_2021-01-19/results/part-000*
-    - --tree-config-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_fe_v2.conf
-    - --pretrained-model-path=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/multi_test/pretrained/2020-12-02-2021-01-05.csr_dresden_lgbm_model_lambdamart_perso_v2_window_35days_newqtc/model
+    - --bz-features-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/data/pyspark_buzzsaw_features_multiobj_v1_7days/2021-03-02_2021-03-08/results/part-*
+    - --bz-features-path-test=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/data/pyspark_buzzsaw_features_multiobj_v1_7days/2021-03-08_2021-03-14/results/part-000*
+    - --tree-config-path=gs://etldata-prod-search-ranking-data-hkwv8r/data/shared/ranking/lightgbm/tree_train_mobj_v1.conf
+    - --pretrained-model-path=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/multi_test/pretrained/models/model
     - --output-model-path=gs://etldata-prod-search-ranking-data-hkwv8r/user/yfu/multi-test/post_trained/models/test_7days/
     - --num_trees=500 #Override the default parameter for num_trees, don't HP tune on this
 #  hyperparameters:

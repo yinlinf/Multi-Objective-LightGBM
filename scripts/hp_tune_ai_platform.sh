@@ -1,6 +1,6 @@
 #!/bin/bash
 
-JOB_NAME="multi_lgbm_pretrained_9_click"
+JOB_NAME="multi_lgbm_freshness_4"
 HPTUNING_CONFIG_FILE="./scripts/example_hp_config_big_disk_7days.yaml"
 PROJECT="etsy-sr-etl-prod"
 STAGING_BUCKET=gs://etldata-prod-search-ranking-data-hkwv8r/

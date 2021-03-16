@@ -162,49 +162,16 @@ def set_group_for_dataset(data_path, query_id_column):
             missing_days.append(line_query_id)
             line_days = 180
         days_created.append(line_days)
-
+    # print('Listings Missing Days:', collections.Counter(missing_days))
+    # print('Percent of Missing Days: %.2f %%' % (len(missing_days) / len(days_created) * 100))
     groups.append(group_size)
     np.asarray(groups, dtype=np.uint8)
-    days_created = [7-x if x < 7 else 0.5 for x in days_created]
+    days_created = [7-x if x < 6.5 else 0.5 for x in days_created]
     np.asarray(days_created, dtype=np.float16)
     data = lgb.Dataset(data_path, free_raw_data=False)
     data.set_group(groups)
     data.labels_daysCreated = days_created
     return data
-
-def set_price_label_for_dataset(data, price_id_column):
-    prices = []
-    missing_prices = []
-    for line in open(data_path, 'r'):
-        line_price = sparse_vector_string_extract_column(line, price_id_column)
-        if line_price is None:
-            missing_prices.append(line_query_id)
-            line_price = 0.0001
-        log_price = np.log2(1 + line_price)
-        prices.append(log_price)
-    # print('Listings Missing Price:', collections.Counter(missing_prices))
-    print('Percent of Missing Price: %.2f %%' % (len(missing_prices) / len(prices) * 100))
-    np.asarray(prices, dtype=np.float16)
-    data.labels_price = prices
-    return data
-
-def set_days_label_for_dataset(data, daysSinceOriginalCreate_id_column):
-    days_created = []
-    missing_days = []
-    for line in open(data_path, 'r'):
-        line_query_id = int(sparse_vector_string_extract_column(line, query_id_column))
-        line_days = sparse_vector_string_extract_column(line, daysSinceOriginalCreate_id_column)
-        if line_days is None:
-            missing_days.append(line_query_id)
-            line_days = 0
-        days_created.append(line_days)
-    print('Listings Missing Days:', collections.Counter(missing_days))
-    print('Percent of Missing Days: %.2f %%' % (len(missing_days) / len(days_created) * 100))
-    np.asarray(days_created, dtype=np.float16)
-    # print(collections.Counter(days_created))
-    data.labels_daysCreated = days_created
-    return data
-
 
 def customized_objective_freshness(preds, dataset):
     # define customized objective function as
@@ -332,7 +299,7 @@ def _train_model_report_metrics(tree_params,
     train_data = set_group_for_dataset(_LOCAL_TRAIN_FILE, query_id_column)
     valid_data = set_group_for_dataset(_LOCAL_VALID_FILE, query_id_column)
     test_data = set_group_for_dataset(_LOCAL_TEST_FILE, query_id_column)
-    alpha_values = np.arange(0.5, 1.1, 0.25)
+    alpha_values = np.arange(0.5, 1.0, 0.1)
     # alpha_values = [0.9]
     best_eval_result = []
     logging.info("Loading pre-trained model...")
@@ -423,11 +390,11 @@ if __name__ == '__main__':
     tree_params = _parse_tree_params(_LOCAL_TREE_CONFIG_PATH, extra_args)
 
     query_id_column = _extract_query_id_column(tree_params)
-    # _copy_bz_features_locally(args.bz_features_path, _LOCAL_BZ_FEATURES_DIR)
-    # _copy_bz_features_locally(args.bz_features_path_test, _LOCAL_BZ_FEATURES_DIR_TEST)
-    # _create_train_valid_files(args.train_ratio, query_id_column)
-    #
-    # _copy_model_locally(args.pretrained_model_path, _LOCAL_MODEL_PATH)
+    _copy_bz_features_locally(args.bz_features_path, _LOCAL_BZ_FEATURES_DIR)
+    _copy_bz_features_locally(args.bz_features_path_test, _LOCAL_BZ_FEATURES_DIR_TEST)
+    _create_train_valid_files(args.train_ratio, query_id_column)
+
+    _copy_model_locally(args.pretrained_model_path, _LOCAL_MODEL_PATH)
     _train_model_report_metrics(tree_params,
                                 args.make_validation_ndcg_purchase_only)
 
