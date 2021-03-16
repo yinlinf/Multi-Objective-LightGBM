@@ -208,23 +208,23 @@ def set_days_label_for_dataset(data, daysSinceOriginalCreate_id_column):
     return data
 
 
-def customized_objective_click(preds, dataset):
+def combined_objective(preds, dataset):
     # define customized objective function as
     # alpha * purchase_ndcg + (1 - alpha) * click_ndcg
     groups = dataset.get_group()
     labels = dataset.get_label()
     # prepare labels for purchase_ndcg and click_ndcg seperately
-    labels_purchase = np.zeros(len(labels), dtype=np.uint8)
-    labels_purchase[labels == 4.0] = 1
+    # labels_purchase = np.zeros(len(labels), dtype=np.uint8)
+    # labels_purchase[labels >= 3.0] = 1
     labels_click = np.zeros(len(labels), dtype=np.uint8)
-    labels_click[labels != 0] = 1
-    calculator_1 = Calculator(labels_purchase, groups, MAX_NDCG_POS)
+    labels_click[labels != 0] = 5
+    calculator_1 = Calculator(labels, groups, MAX_NDCG_POS)
     calculator_2 = Calculator(labels_click, groups, MAX_NDCG_POS)
     if len(groups) == 0:
         raise Error("Group/query data should not be empty.")
     else:
         grad_1, hess_1 = get_grad_hess(
-            labels_purchase, preds, groups, calculator_1
+            labels, preds, groups, calculator_1
         )
         grad_2, hess_2 = get_grad_hess(
             labels_click, preds, groups, calculator_2
@@ -232,16 +232,19 @@ def customized_objective_click(preds, dataset):
         alpha = dataset.alpha
         return alpha * grad_1 + (1 - alpha) * grad_2, alpha * hess_1 + (1 - alpha) * hess_2
 
-def customized_eval_click(preds, dataset):
+def combined_eval(preds, dataset):
     # define customized evaluation function
     dataset.construct()
     groups = dataset.get_group()
     labels = dataset.get_label()
-    labels_purchase = np.zeros(len(labels), dtype=np.uint8)
-    labels_purchase[labels == 4.0] = 1
-    labels_click = np.zeros(len(labels), dtype=np.uint8)
-    labels_click[labels != 0] = 1
-    calculator_1 = Calculator(labels_purchase, groups, 10)
+    # labels_purchase = np.zeros(len(labels), dtype=np.uint8)
+    # labels_purchase[labels == 1.0] = 1.0
+    # labels_purchase[labels == 2.0] = 3.0
+    # labels_purchase[labels == 3.0] = 7.0
+    # labels_purchase[labels >= 3.0] = 1
+    labels_click = np.zeros(len(labels))
+    labels_click[labels != 0] = 5
+    calculator_1 = Calculator(labels, groups, 10)
     calculator_2 = Calculator(labels_click, groups, 10)
     ndcg_1 = calculator_1.compute_ndcg(preds)
     ndcg_2 = calculator_2.compute_ndcg(preds)
@@ -258,63 +261,10 @@ def report_metrics_1(preds, dataset):
     labels_purchase[labels == 4.0] = 1.0 # purchase only
     labels_click = np.zeros(len(labels), dtype=np.uint8)
     labels_click[labels >= 1] = 1.0 # click and above
-    labels_cart = np.zeros(len(labels), dtype=np.uint8)
-    labels_cart[labels >= 3] = 1.0 # cart and above
     calculator_1 = Calculator(labels_purchase, groups, 10)
     calculator_2 = Calculator(labels_click, groups, 10)
-    calculator_3 = Calculator(labels_cart, groups, 10)
     ndcg_1 = calculator_1.compute_ndcg(preds)
     ndcg_2 = calculator_2.compute_ndcg(preds)
-    # ndcg_3 = calculator_3.compute_ndcg(preds)
-    # y_hat = (preds > 0.5)
-    # auc = metrics.roc_auc_score(labels_purchase, preds)
-    # acc = np.mean(labels_purchase == y_hat)
-    return [ndcg_1, ndcg_2]
-
-def customized_objective_price(preds, dataset):
-    groups = dataset.get_group()
-    labels_purchase = dataset.get_label()
-    labels_price = dataset.labels_price
-    calculator_1 = Calculator(labels_purchase, groups, MAX_NDCG_POS)
-    calculator_2 = Calculator(labels_price, groups, MAX_NDCG_POS)
-    if len(groups) == 0:
-        raise Error("Group/query data should not be empty.")
-    else:
-        grad_1, hess_1 = get_grad_hess(
-            labels_purchase, preds, groups, calculator_1
-        )
-        grad_2, hess_2 = get_grad_hess(
-            labels_price, preds, groups, calculator_2
-        )
-        alpha = dataset.alpha
-        return alpha * grad_1 + (1 - alpha) * grad_2, alpha * hess_1 + (1 - alpha) * hess_2
-
-def customized_eval_price(preds, dataset):
-    dataset.construct()
-    groups = dataset.get_group()
-    labels_purchase = dataset.get_label()
-    labels_price = dataset.labels_price
-    calculator_1 = Calculator(labels_purchase, groups, 10)
-    calculator_2 = Calculator(labels_price, groups, 10)
-    ndcg_1 = calculator_1.compute_ndcg(preds)
-    ndcg_2 = calculator_2.compute_ndcg(preds)
-    alpha = dataset.alpha
-    combined_ndcg = alpha * ndcg_1 + (1 - alpha) * ndcg_2
-    return [("combined_ndcg", combined_ndcg, True)]
-
-def report_metrics_2(preds, dataset):
-    # define customized metrics for test data
-    dataset.construct()
-    groups = dataset.get_group()
-    labels_purchase = dataset.get_label()
-    labels_price = dataset.labels_price
-    calculator_1 = Calculator(labels_purchase, groups, 10)
-    calculator_2 = Calculator(labels_price, groups, 10)
-    ndcg_1 = calculator_1.compute_ndcg(preds)
-    ndcg_2 = calculator_2.compute_ndcg(preds)
-    # y_hat = (preds > 0.5)
-    # auc = metrics.roc_auc_score(labels_purchase, preds)
-    # acc = np.mean(labels_purchase == y_hat)
     return [ndcg_1, ndcg_2]
 
 def _run_shell_command(command:str):
@@ -399,8 +349,7 @@ def _train_model_report_metrics(tree_params,
     train_data = set_group_for_dataset(_LOCAL_TRAIN_FILE, query_id_column)
     valid_data = set_group_for_dataset(_LOCAL_VALID_FILE, query_id_column)
     test_data = set_group_for_dataset(_LOCAL_TEST_FILE, query_id_column)
-    # set_days_label_for_dataset(_LOCAL_TRAIN_FILE, 28)
-    alpha_values = np.arange(0.5, 1.1, 0.25)
+    alpha_values = np.arange(0.5, 1.0, 0.1)
     # alpha_values = [0.9]
     best_eval_result = []
     logging.info("Loading pre-trained model...")
@@ -410,12 +359,11 @@ def _train_model_report_metrics(tree_params,
         train_data.alpha = alpha
         valid_data.alpha = alpha
         logging.info("Training model...")
-        #for more metrics https://github.com/microsoft/LightGBM/blob/a7885b60dd398fc89d797049a31c7b85713c966b/examples/python-guide/advanced_example.py#L175-L185
         model = lgb.train(params=tree_params,
                          train_set=train_data,
                          valid_sets=[valid_data],
-                         fobj=customized_objective_click,
-                         feval=customized_eval_click,
+                         fobj=combined_objective,
+                         feval=combined_eval,
                          # callbacks=[lgb.print_evaluation()],
                          evals_result=evals_result,
                          keep_training_booster=True,
