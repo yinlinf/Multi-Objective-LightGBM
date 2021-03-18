@@ -208,9 +208,9 @@ def report_metrics_freshness(preds, dataset):
     dataset.construct()
     groups = dataset.get_group()
     labels = dataset.get_label()
-    labels_purchase = np.zeros(len(labels), dtype=np.uint8)
-    labels_purchase[labels == 4.0] = 1.0 # purchase only
-    calculator_1 = Calculator(labels_purchase, groups, 10)
+    # labels_purchase = np.zeros(len(labels), dtype=np.uint8)
+    # labels_purchase[labels == 4.0] = 1.0 # purchase only
+    calculator_1 = Calculator(labels, groups, 10)
     calculator_2 = Calculator(dataset.labels_daysCreated, groups, 10)
     ndcg_1 = calculator_1.compute_ndcg(preds)
     ndcg_2 = calculator_2.compute_ndcg(preds)

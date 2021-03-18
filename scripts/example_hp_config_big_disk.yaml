@@ -1,6 +1,7 @@
 trainingInput:
   scaleTier: CUSTOM
   masterType: n1-highmem-96
+  jobDir: gs://etldata-prod-search-ranking-data-hkwv8r/ranking/lightgbm_experiments
   masterConfig:
     diskConfig:
       bootDiskSizeGb: 3000
